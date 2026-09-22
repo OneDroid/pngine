@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    `maven-publish`
 }
 
 android {
@@ -22,7 +23,11 @@ android {
     publishing {
         singleVariant("release") {
             withSourcesJar()
-            withJavadocJar()
+            // The Dokka bundled with AGP 8.13 cannot parse Java 24+ version
+            // strings and fails the task. Skip the javadoc jar there.
+            if (JavaVersion.current() <= JavaVersion.VERSION_23) {
+                withJavadocJar()
+            }
         }
     }
 }
@@ -37,4 +42,16 @@ kotlin {
 dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
+}
+
+group = "org.onedroid"
+version = "0.1.0"
+
+publishing {
+    publications {
+        register<MavenPublication>("release") {
+            artifactId = "pngine"
+            afterEvaluate { from(components["release"]) }
+        }
+    }
 }
