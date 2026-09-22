@@ -1,0 +1,35 @@
+Pngine
+Copyright 2026 MacTechnology
+
+Licensed under the Apache License, Version 2.0.
+
+This product implements published algorithms. Credit where due:
+
+  Median-cut colour quantization
+    Heckbert, P. (1982). "Color Image Quantization for Frame Buffer
+    Display." ACM SIGGRAPH Computer Graphics, 16(3), 297-307.
+
+  Iterative palette refinement (k-means / Lloyd relaxation)
+    Lloyd, S. P. (1982). "Least squares quantization in PCM."
+    IEEE Transactions on Information Theory, 28(2), 129-137.
+
+  Floyd-Steinberg error diffusion
+    Floyd, R. W., & Steinberg, L. (1976). "An adaptive algorithm for
+    spatial greyscale." Proceedings of the SID, 17(2), 75-77.
+
+  Jarvis-Judice-Ninke error diffusion
+    Jarvis, J. F., Judice, C. N., & Ninke, W. H. (1976). "A survey of
+    techniques for the display of continuous tone pictures on bilevel
+    displays." Computer Graphics and Image Processing, 5(1), 13-40.
+
+  Low-cost perceptual colour distance ("redmean")
+    Riemersma, T. / CompuPhase. "Colour metric."
+    https://www.compuphase.com/cmetric.htm
+
+  PNG container format
+    Boutell, T. et al. RFC 2083, "PNG (Portable Network Graphics)
+    Specification Version 1.0."
+
+No source code was taken from pngquant or libimagequant. Pngine is an
+independent implementation, written to be usable under a permissive
+licence on Android without native code.
