@@ -2,6 +2,9 @@
 .gradle/
 build/
 
+# MkDocs output
+site/
+
 # Local configuration file (sdk path, etc)
 local.properties
 

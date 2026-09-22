@@ -8,6 +8,8 @@ pure Kotlin: no NDK, no native binaries, no third-party dependencies, and no
 ARGB pixels in, PNG `ByteArray` out. On Android, `android.graphics.Bitmap`
 in as well.
 
+**[Documentation](https://onedroid.github.io/pngine/)**
+
 ## Why
 
 `Bitmap.compress(PNG, …)` always writes 24/32-bit PNG and ignores the
@@ -179,6 +181,20 @@ so a shared misreading of RFC 1951 cannot hide a bug.
 [`sample/`](sample/README.md) is a Compose Multiplatform app — Android,
 iOS, desktop and web — that encodes a generated image and reports the size
 saved. It builds against this repository through a composite build.
+
+## Docs
+
+The site under [`docs/`](docs) is built with MkDocs Material and deployed to
+GitHub Pages by [`.github/workflows/docs.yml`](.github/workflows/docs.yml)
+on every push to `main` that touches it.
+
+To preview locally:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r docs/requirements.txt
+.venv/bin/mkdocs serve
+```
 
 ## Licence
 
