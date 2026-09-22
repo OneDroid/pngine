@@ -5,37 +5,42 @@ directory.
 
 ### Using Pngine
 
-Pngine is an **Android** library: it takes `android.graphics.Bitmap` and ships
-as an AAR. So only the Android target encodes for real. The shared code hides
-this behind an `expect object PngEncoder`
-([commonMain](./shared/src/commonMain/kotlin/org/onedroid/sample/png/PngEncoder.kt)):
+Pngine is a Kotlin Multiplatform library with no dependencies, so the sample
+calls it straight from `commonMain` and every target encodes for real:
 
-- [androidMain](./shared/src/androidMain/kotlin/org/onedroid/sample/png/PngEncoder.android.kt)
-  calls `Pngine.encodePixels`, and `Bitmap.compress(PNG)` for a size baseline.
-- The JVM, iOS, JS and Wasm actuals report `isSupported = false`, and the UI
-  shows why instead of the demo.
+```kotlin
+val png = Pngine.encodePixels(pixels, width, height, PngineOptions(maxColors = 64))
+```
 
-The demo screen generates a gradient + soft-edged disc (alpha), encodes it,
-and reports both sizes. On an emulator at 64 colours: 29.4 KB → 12.9 KB, 56%
-smaller, ~360 ms.
+The only `expect`/`actual` in the sample is
+[PlatformPng](./shared/src/commonMain/kotlin/org/onedroid/sample/png/PlatformPng.kt),
+which fetches the platform's own 32-bit PNG encoder purely as a size
+baseline — `Bitmap.compress` on Android, `ImageIO` on desktop, nothing on
+iOS or web.
+
+The demo screen generates a gradient and a soft-edged disc (partial alpha),
+encodes it, and reports the sizes. Measured at 64 colours:
+
+| Target | PNG-8 | Baseline | Encode |
+| --- | --- | --- | --- |
+| Android emulator (Pixel 10 Pro XL) | 12.9 KB | 29.4 KB | 369 ms |
+| Web (Wasm, Chrome) | 12.8 KB | — | 73 ms |
 
 #### Build setup
 
-This sample is a **separate Gradle build** from the library — it runs AGP
-9.1.1 while the library runs AGP 8.13.2, and Gradle refuses two AGP versions
-in one build, so a composite build (`includeBuild`) is not an option. The
-sample consumes the library from `mavenLocal` instead.
+The library lives in the parent directory and is wired in as a composite
+build, so edits to it are picked up without publishing:
 
-Publish the library before building the sample:
-
-```bash
-cd .. && ./gradlew publishToMavenLocal
+```kotlin
+// settings.gradle.kts
+includeBuild("..")
 ```
 
-Then build as usual. The dependency is declared in
-[gradle/libs.versions.toml](./gradle/libs.versions.toml) as
-`org.onedroid:pngine:0.1.0` and wired into `androidMain` in
-[shared/build.gradle.kts](./shared/build.gradle.kts).
+Gradle substitutes the `org.onedroid:pngine` dependency — declared in
+[gradle/libs.versions.toml](./gradle/libs.versions.toml) and used from
+`commonMain` in [shared/build.gradle.kts](./shared/build.gradle.kts) — with
+that build's project. Both builds must stay on the same AGP version;
+Gradle refuses a composite build that mixes two.
 
 * [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
   you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
@@ -72,6 +77,10 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
   - Wasm target: `./gradlew :shared:wasmJsTest`
   - JS target: `./gradlew :shared:jsTest`
 - iOS tests: `./gradlew :shared:iosSimulatorArm64Test`
+
+[PngineSampleTest](./shared/src/commonTest/kotlin/org/onedroid/sample/PngineSampleTest.kt)
+lives in `commonTest`, so each of those tasks exercises the sample's own
+Pngine encoding path on that target.
 
 ---
 

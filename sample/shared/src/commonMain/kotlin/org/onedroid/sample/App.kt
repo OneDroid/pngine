@@ -36,9 +36,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.decodeToImageBitmap
-import org.onedroid.sample.png.DemoOptions
-import org.onedroid.sample.png.PngEncoder
+import org.onedroid.pngine.Pngine
+import org.onedroid.pngine.PngineOptions
 import org.onedroid.sample.png.TestImage
+import org.onedroid.sample.png.platformPngBaseline
+import org.onedroid.sample.png.platformPngName
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -48,12 +50,13 @@ private val PALETTE_SIZES = listOf(16, 32, 64, 128, 256)
 private data class EncodeResult(
     val image: ImageBitmap,
     val png8Bytes: Int,
-    val baselineBytes: Int,
+    val baselineBytes: Int?,
     val took: Duration,
 ) {
     /** How much smaller the PNG-8 output is than the platform's 32-bit PNG. */
-    val savedPercent: Int =
-        (100.0 * (baselineBytes - png8Bytes) / baselineBytes).roundToInt()
+    val savedPercent: Int? = baselineBytes?.let {
+        (100.0 * (it - png8Bytes) / it).roundToInt()
+    }
 }
 
 @Composable
@@ -76,11 +79,7 @@ fun App() {
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
-                if (PngEncoder.isSupported) {
-                    EncoderDemo()
-                } else {
-                    UnsupportedCard(PngEncoder.unsupportedReason.orEmpty())
-                }
+                EncoderDemo()
             }
         }
     }
@@ -126,14 +125,18 @@ private fun EncoderDemo() {
                     // Encoding is CPU-bound; keep it off the UI thread.
                     val encoded = withContext(Dispatchers.Default) {
                         val mark = TimeSource.Monotonic.markNow()
-                        val png8 = PngEncoder.encodePng8(
-                            pixels = pixels,
+                        val png8 = Pngine.encodePixels(
+                            // encodePixels normalises alpha in place.
+                            pixels = pixels.copyOf(),
                             width = TestImage.WIDTH,
                             height = TestImage.HEIGHT,
-                            options = DemoOptions(maxColors, dithering),
+                            options = PngineOptions(
+                                maxColors = maxColors,
+                                dithering = dithering,
+                            ),
                         )
                         val took = mark.elapsedNow()
-                        val baseline = PngEncoder.encodeBaselinePng(
+                        val baseline = platformPngBaseline(
                             pixels = pixels,
                             width = TestImage.WIDTH,
                             height = TestImage.HEIGHT,
@@ -144,7 +147,7 @@ private fun EncoderDemo() {
                     result = EncodeResult(
                         image = png8.decodeToImageBitmap(),
                         png8Bytes = png8.size,
-                        baselineBytes = baseline.size,
+                        baselineBytes = baseline?.size,
                         took = took,
                     )
                 } catch (e: Exception) {
@@ -182,9 +185,9 @@ private fun EncoderDemo() {
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Stat("Bitmap.compress(PNG)", formatBytes(r.baselineBytes))
+                r.baselineBytes?.let { Stat(platformPngName, formatBytes(it)) }
                 Stat("Pngine PNG-8", formatBytes(r.png8Bytes))
-                Stat("Saved", "${r.savedPercent}%")
+                r.savedPercent?.let { Stat("Saved", "$it%") }
                 Stat("Encode time", "${r.took.inWholeMilliseconds} ms")
             }
         }
@@ -203,28 +206,6 @@ private fun Stat(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontFamily = FontFamily.Monospace,
         )
-    }
-}
-
-@Composable
-private fun UnsupportedCard(reason: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("Android only", style = MaterialTheme.typography.titleMedium)
-            Text(reason, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "Run the androidApp module to see the encoder work.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
     }
 }
 

@@ -16,13 +16,6 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        // Pngine is built from the parent directory; publish it with
-        // `./gradlew publishToMavenLocal` in the repo root first.
-        mavenLocal {
-            mavenContent {
-                includeGroup("org.onedroid")
-            }
-        }
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -37,6 +30,10 @@ dependencyResolutionManagement {
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
+
+// Pngine itself, built from the parent directory. Gradle substitutes the
+// org.onedroid:pngine dependency with this build's project.
+includeBuild("..")
 
 include(":androidApp")
 include(":desktopApp")

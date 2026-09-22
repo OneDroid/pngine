@@ -1,10 +1,12 @@
 # Pngine
 
-PNG-8 encoder for Android. Palette quantization with full alpha support,
-written in pure Kotlin — no NDK, no native binaries, no third-party
-dependencies.
+PNG-8 encoder for Kotlin Multiplatform — Android, JVM/desktop, iOS, and the
+web (JS and Wasm). Palette quantization with full alpha support, written in
+pure Kotlin: no NDK, no native binaries, no third-party dependencies, and no
+`java.util.zip` — the DEFLATE compressor is part of the library.
 
-`android.graphics.Bitmap` in, PNG `ByteArray` out.
+ARGB pixels in, PNG `ByteArray` out. On Android, `android.graphics.Bitmap`
+in as well.
 
 ## Why
 
@@ -13,47 +15,72 @@ quality argument, so it does not reduce colour depth at all. The usual
 answer is [pngquant / libimagequant](https://pngquant.org/lib/), which is
 excellent but needs JNI and is GPL-or-commercial.
 
-Pngine fills the gap: Apache-2.0, pure Kotlin, runs on device.
+Pngine fills the gap: Apache-2.0, pure Kotlin, runs on device — and, being
+pure Kotlin all the way down to DEFLATE, runs unchanged on iOS, desktop and
+in the browser.
 
 It is not a reimplementation of anything novel — see
 [Prior art](#prior-art). It is a permissively licensed, dependency-free
 implementation of well-established algorithms.
 
+## Targets
+
+`androidTarget`, `jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`, `js` and
+`wasmJs`.
+
 ## Install
 
 ```kotlin
-dependencies {
-    implementation("org.onedroid:pngine:0.1.0")
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("org.onedroid:pngine:0.1.0")
+        }
+    }
 }
 ```
 
 ## Usage
 
+From common code, on every target:
+
 ```kotlin
-val bytes = Pngine.encode(bitmap)
-File(cacheDir, "out.png").writeBytes(bytes)
+val bytes = Pngine.encodePixels(argbPixels, width, height)
 ```
+
+`argbPixels` is one packed `Int` per pixel, row-major, alpha in the high
+byte. It is modified in place during alpha normalisation — pass a copy if
+you still need the original.
 
 Encoding is CPU-bound — run it off the main thread:
 
 ```kotlin
 val bytes = withContext(Dispatchers.Default) {
-    Pngine.encode(bitmap, PngineOptions(maxColors = 128))
+    Pngine.encodePixels(argbPixels, width, height, PngineOptions(maxColors = 128))
 }
 ```
 
 Presets:
 
 ```kotlin
-Pngine.encode(bitmap, PngineOptions.MaxQuality)  // slower, wider dither kernel
-Pngine.encode(bitmap, PngineOptions.Fast)        // batch work, low memory
+PngineOptions.MaxQuality  // slower, wider dither kernel
+PngineOptions.Fast        // batch work, low memory
 ```
 
-Raw pixels, no `Bitmap` needed:
+### Android bitmaps
+
+The Android source set adds a `Bitmap` overload as an extension, so it needs
+its own import:
 
 ```kotlin
-val bytes = Pngine.encodePixels(argbPixels, width, height)
+import org.onedroid.pngine.Pngine
+import org.onedroid.pngine.encode
+
+val bytes = Pngine.encode(bitmap)
+File(cacheDir, "out.png").writeBytes(bytes)
 ```
+
+From Java it reads `PngineBitmaps.encode(Pngine.INSTANCE, bitmap)`.
 
 ### Hardware bitmaps
 
@@ -95,6 +122,9 @@ Soft edges suffer when alpha is pre-quantized. For icons and cutouts, raise
 4. Refine with Lloyd/k-means relaxation in RGBA
 5. Remap pixels with error diffusion in linear light
 6. Write indexed PNG — IHDR, PLTE, optional tRNS, IDAT, IEND
+7. Compress IDAT with the bundled DEFLATE encoder: LZ77 over a 32 KiB
+   window with hash chains and lazy matching, then whichever of a stored,
+   fixed-Huffman or dynamic-Huffman block is cheapest
 
 ## Prior art
 
@@ -107,6 +137,7 @@ a licence and a platform. Full citations are in [NOTICE](NOTICE).
 - Jarvis-Judice-Ninke error diffusion — Jarvis, Judice & Ninke (1976)
 - Perceptual colour distance ("redmean") — Riemersma / CompuPhase
 - PNG container — RFC 2083
+- DEFLATE and zlib containers — RFC 1951 and RFC 1950
 
 No code was taken from pngquant or libimagequant.
 
@@ -124,18 +155,30 @@ Ordered by expected size win:
   actually save bytes.
 - **Faster nearest-colour search.** Currently a linear scan over the
   palette per pixel.
-- **Kotlin Multiplatform.** Needs `expect`/`actual` for the pixel source
-  and a non-JVM deflate.
+- **Faster DEFLATE.** The bundled compressor is straightforward rather than
+  tuned; zlib is still quicker on the JVM.
 
 ## Testing
 
 ```bash
-./gradlew :pngine:testDebugUnitTest
+./gradlew :pngine:allTests
 ```
+
+That runs the common suite on every target — JVM, Android host, iOS
+simulator, Node for JS and Wasm.
 
 Tests decode the emitted bytes with a strict in-test PNG reader that
 verifies chunk lengths, CRCs and row filters, rather than trusting a
-platform decoder.
+platform decoder. The compressor is round-tripped through an inflater
+written for the test suite, so the check also runs on JS, Wasm and native;
+the JVM source set repeats the same cases against `java.util.zip.Inflater`,
+so a shared misreading of RFC 1951 cannot hide a bug.
+
+## Sample
+
+[`sample/`](sample/README.md) is a Compose Multiplatform app — Android,
+iOS, desktop and web — that encodes a generated image and reports the size
+saved. It builds against this repository through a composite build.
 
 ## Licence
 

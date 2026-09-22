@@ -13,7 +13,9 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // Left at the default PREFER_PROJECT: the Kotlin/JS and Wasm toolchains
+    // register their own Node.js distribution repository, and the stricter
+    // modes reject it.
     repositories {
         google()
         mavenCentral()

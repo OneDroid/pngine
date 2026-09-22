@@ -62,7 +62,6 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
-            implementation(libs.pngine)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -74,6 +73,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.coroutinesCore)
+            implementation(libs.pngine)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
