@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package au.com.mactechnology.pngine
+package org.onedroid.pngine
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer

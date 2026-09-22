@@ -23,7 +23,7 @@ implementation of well-established algorithms.
 
 ```kotlin
 dependencies {
-    implementation("au.com.mactechnology:pngine:0.1.0")
+    implementation("org.onedroid:pngine:0.1.0")
 }
 ```
 

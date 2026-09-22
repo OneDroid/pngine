@@ -1,4 +1,4 @@
-package au.com.mactechnology.pngine
+package org.onedroid.pngine
 
 import kotlin.math.abs
 import org.junit.Assert.assertEquals

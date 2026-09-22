@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "au.com.mactechnology.pngine"
+    namespace = "org.onedroid.pngine"
     compileSdk = 36
 
     defaultConfig {

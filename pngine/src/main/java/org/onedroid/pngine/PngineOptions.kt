@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package au.com.mactechnology.pngine
+package org.onedroid.pngine
 
 /** Error-diffusion kernel used when remapping pixels onto the palette. */
 public enum class DitheringMethod {
