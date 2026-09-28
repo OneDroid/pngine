@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - docs/**
+      - mkdocs.yml
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - docs/**
+      - mkdocs.yml
+      - "**.md"
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes a running build.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # macOS so the iOS simulator targets build and run alongside JVM,
+    # Android host, JS and Wasm.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Test all targets
+        run: ./gradlew :pngine:allTests --continue
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-reports
+          path: pngine/build/reports/tests/
