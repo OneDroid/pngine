@@ -233,6 +233,23 @@ class Png8EncoderTest {
     }
 
     @Test
+    fun `ignores pixels past the end of the image`() {
+        val expected = argb(255, 200, 30, 30)
+        // 8x8 image in an oversized buffer whose tail is a different colour.
+        val pixels = IntArray(64 + 4096) { if (it < 64) expected else argb(255, 0, 255, 0) }
+
+        val png = TestPngReader.read(
+            Pngine.encodePixels(pixels, 8, 8, PngineOptions(kmeansSampleRate = 1)),
+        )
+
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                assertEquals(expected, png.argbAt(x, y), "pixel ($x,$y)")
+            }
+        }
+    }
+
+    @Test
     fun `rejects an inconsistent pixel count`() {
         val error = runCatching { Pngine.encodePixels(IntArray(10), 4, 4) }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException, "expected IllegalArgumentException, got $error")

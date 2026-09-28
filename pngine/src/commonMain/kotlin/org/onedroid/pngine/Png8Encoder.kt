@@ -59,17 +59,21 @@ internal object Png8Encoder {
         palette = if (options.preserveAlphaInPalette) {
             refineKMeansRgba(
                 pixels = pixels,
+                count = width * height,
                 palette = palette,
                 iterations = options.kmeansIterations,
                 sampleRate = options.kmeansSampleRate,
                 alphaWeight = options.alphaWeight,
+                perceptual = options.usePerceptualDistance,
             )
         } else {
             refineKMeansRgb(
                 pixels = pixels,
+                count = width * height,
                 palette = palette,
                 iterations = options.kmeansIterations,
                 sampleRate = options.kmeansSampleRate,
+                perceptual = options.usePerceptualDistance,
             )
         }
 
@@ -339,12 +343,19 @@ internal object Png8Encoder {
         }
     }
 
+    /**
+     * Lloyd refinement over the first [count] pixels. [pixels] may be longer
+     * than the image; anything past [count] was never alpha-normalised and
+     * must not pull the palette.
+     */
     private fun refineKMeansRgba(
         pixels: IntArray,
+        count: Int,
         palette: IntArray,
         iterations: Int,
         sampleRate: Int,
         alphaWeight: Int,
+        perceptual: Boolean,
     ): IntArray {
         val result = palette.copyOf()
 
@@ -352,14 +363,14 @@ internal object Png8Encoder {
             val sums = Array(result.size) { LongArray(5) }
 
             var i = 0
-            while (i < pixels.size) {
+            while (i < count) {
                 val pixel = pixels[i]
                 val a = pixel ushr 24
                 if (a != 0) {
                     val r = (pixel ushr 16) and 0xFF
                     val g = (pixel ushr 8) and 0xFF
                     val b = pixel and 0xFF
-                    val index = findNearestPerceptual(r, g, b, a, result, alphaWeight)
+                    val index = findNearest(r, g, b, a, result, alphaWeight, perceptual)
                     sums[index][0] += r.toLong()
                     sums[index][1] += g.toLong()
                     sums[index][2] += b.toLong()
@@ -392,9 +403,11 @@ internal object Png8Encoder {
 
     private fun refineKMeansRgb(
         pixels: IntArray,
+        count: Int,
         palette: IntArray,
         iterations: Int,
         sampleRate: Int,
+        perceptual: Boolean,
     ): IntArray {
         val result = palette.copyOf()
 
@@ -402,13 +415,13 @@ internal object Png8Encoder {
             val sums = Array(result.size) { LongArray(4) }
 
             var i = 0
-            while (i < pixels.size) {
+            while (i < count) {
                 val pixel = pixels[i]
                 if (pixel ushr 24 != 0) {
                     val r = (pixel ushr 16) and 0xFF
                     val g = (pixel ushr 8) and 0xFF
                     val b = pixel and 0xFF
-                    val index = findNearestPerceptual(r, g, b, 255, result, 0)
+                    val index = findNearest(r, g, b, 255, result, 0, perceptual)
                     sums[index][0] += r.toLong()
                     sums[index][1] += g.toLong()
                     sums[index][2] += b.toLong()
@@ -508,15 +521,27 @@ internal object Png8Encoder {
         return best
     }
 
+    /**
+     * Nearest palette entry under the configured metric. k-means and the
+     * remap both go through here so the palette is fitted with the same
+     * distance it is later searched with.
+     */
+    private fun findNearest(
+        r: Int, g: Int, b: Int, a: Int,
+        palette: IntArray,
+        alphaWeight: Int,
+        perceptual: Boolean,
+    ): Int = if (perceptual) {
+        findNearestPerceptual(r, g, b, a, palette, alphaWeight)
+    } else {
+        findNearestEuclidean(r, g, b, a, palette, alphaWeight)
+    }
+
     private fun findNearest(
         r: Int, g: Int, b: Int, a: Int,
         palette: IntArray,
         options: PngineOptions,
-    ): Int = if (options.usePerceptualDistance) {
-        findNearestPerceptual(r, g, b, a, palette, options.alphaWeight)
-    } else {
-        findNearestEuclidean(r, g, b, a, palette, options.alphaWeight)
-    }
+    ): Int = findNearest(r, g, b, a, palette, options.alphaWeight, options.usePerceptualDistance)
 
     private fun transparentIndex(palette: IntArray): Int {
         if (palette.isNotEmpty() && palette[0] ushr 24 == 0) return 0
@@ -654,22 +679,22 @@ internal object Png8Encoder {
                 errR[x + 2] += eR * w7
                 errG[x + 2] += eG * w7
                 errB[x + 2] += eB * w7
-                errA[x + 2] += eA * w7 * 0.5f
+                errA[x + 2] += eA * w7
 
                 nextR[x] += eR * w3
                 nextG[x] += eG * w3
                 nextB[x] += eB * w3
-                nextA[x] += eA * w3 * 0.5f
+                nextA[x] += eA * w3
 
                 nextR[x + 1] += eR * w5
                 nextG[x + 1] += eG * w5
                 nextB[x + 1] += eB * w5
-                nextA[x + 1] += eA * w5 * 0.5f
+                nextA[x + 1] += eA * w5
 
                 nextR[x + 2] += eR * w1
                 nextG[x + 2] += eG * w1
                 nextB[x + 2] += eB * w1
-                nextA[x + 2] += eA * w1 * 0.5f
+                nextA[x + 2] += eA * w1
             }
 
             nextR.copyInto(errR, 0, 0, width + 2)
