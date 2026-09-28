@@ -1,12 +1,8 @@
 # Installation
 
-!!! note "Not on Maven Central yet"
-
-    Pngine is at version `0.1.0` and has not been published to a public
-    repository. Until it is, build it from source — see
-    [from source](#from-source) below — or consume it through a
-    [composite build](#composite-build), which is what the
-    [sample app](sample.md) does.
+Pngine is published to
+[Maven Central](https://central.sonatype.com/artifact/org.onedroid/pngine).
+Add `mavenCentral()` to your repositories if it is not there already.
 
 ## Gradle
 
@@ -28,6 +24,27 @@ Android-only project:
 dependencies {
     implementation("org.onedroid:pngine:0.1.0")
 }
+```
+
+Version catalog:
+
+```toml title="gradle/libs.versions.toml"
+[versions]
+pngine = "0.1.0"
+
+[libraries]
+pngine = { module = "org.onedroid:pngine", version.ref = "pngine" }
+```
+
+Maven, which does not read Gradle module metadata, needs the JVM artifact
+by name:
+
+```xml title="pom.xml"
+<dependency>
+    <groupId>org.onedroid</groupId>
+    <artifactId>pngine-jvm</artifactId>
+    <version>0.1.0</version>
+</dependency>
 ```
 
 ## From source

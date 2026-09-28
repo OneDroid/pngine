@@ -1,5 +1,9 @@
 # Pngine
 
+[![Maven Central](https://img.shields.io/maven-central/v/org.onedroid/pngine)](https://central.sonatype.com/artifact/org.onedroid/pngine)
+[![CI](https://github.com/OneDroid/pngine/actions/workflows/ci.yml/badge.svg)](https://github.com/OneDroid/pngine/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 PNG-8 encoder for Kotlin Multiplatform — Android, JVM/desktop, iOS, and the
 web (JS and Wasm). Palette quantization with full alpha support, written in
 pure Kotlin: no NDK, no native binaries, no third-party dependencies, and no
@@ -32,6 +36,23 @@ implementation of well-established algorithms.
 
 ## Install
 
+Pngine is on [Maven Central](https://central.sonatype.com/artifact/org.onedroid/pngine).
+Make sure `mavenCentral()` is among your repositories — new projects
+already have it in `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
+
+### Kotlin Multiplatform
+
+Add it to `commonMain` and every target picks up the right artifact:
+
 ```kotlin
 kotlin {
     sourceSets {
@@ -42,11 +63,55 @@ kotlin {
 }
 ```
 
+### Android or JVM only
+
+```kotlin
+dependencies {
+    implementation("org.onedroid:pngine:0.1.0")
+}
+```
+
+### Version catalog
+
+```toml
+# gradle/libs.versions.toml
+[versions]
+pngine = "0.1.0"
+
+[libraries]
+pngine = { module = "org.onedroid:pngine", version.ref = "pngine" }
+```
+
+```kotlin
+implementation(libs.pngine)
+```
+
+### Groovy DSL
+
+```groovy
+implementation 'org.onedroid:pngine:0.1.0'
+```
+
+### Maven
+
+Maven does not read Gradle module metadata, so name the JVM artifact
+directly:
+
+```xml
+<dependency>
+    <groupId>org.onedroid</groupId>
+    <artifactId>pngine-jvm</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
 ## Usage
 
 From common code, on every target:
 
 ```kotlin
+import org.onedroid.pngine.Pngine
+
 val bytes = Pngine.encodePixels(argbPixels, width, height)
 ```
 
@@ -69,7 +134,7 @@ PngineOptions.MaxQuality  // slower, wider dither kernel
 PngineOptions.Fast        // batch work, low memory
 ```
 
-### Android bitmaps
+### Android
 
 The Android source set adds a `Bitmap` overload as an extension, so it needs
 its own import:
@@ -78,18 +143,84 @@ its own import:
 import org.onedroid.pngine.Pngine
 import org.onedroid.pngine.encode
 
-val bytes = Pngine.encode(bitmap)
-File(cacheDir, "out.png").writeBytes(bytes)
+suspend fun saveCompressed(context: Context, bitmap: Bitmap): File =
+    withContext(Dispatchers.Default) {
+        val bytes = Pngine.encode(bitmap)
+        File(context.cacheDir, "out.png").apply { writeBytes(bytes) }
+    }
 ```
 
-From Java it reads `PngineBitmaps.encode(Pngine.INSTANCE, bitmap)`.
+The bitmap is only read; you keep ownership of it. From Java the call reads
+`PngineBitmaps.encode(Pngine.INSTANCE, bitmap)`.
 
-### Hardware bitmaps
+`Bitmap.getPixels` cannot read `Config.HARDWARE` bitmaps, which is what
+`ImageDecoder` (API 28+) returns by default. Ask for a software bitmap when
+decoding:
 
-`Bitmap.getPixels` cannot read `Config.HARDWARE` bitmaps. Decode with
-`ImageDecoder.ALLOCATOR_SOFTWARE`, or copy to `ARGB_8888` first. Pngine
-throws `IllegalArgumentException` with that advice rather than letting the
-platform surface a confusing error.
+```kotlin
+val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, _, _ ->
+    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+}
+```
+
+or copy an existing one with `bitmap.copy(Bitmap.Config.ARGB_8888, false)`.
+Pngine throws `IllegalArgumentException` with that advice rather than
+letting the platform surface a confusing error.
+
+### JVM and desktop
+
+`BufferedImage.getRGB` already returns packed ARGB:
+
+```kotlin
+import java.io.File
+import javax.imageio.ImageIO
+import org.onedroid.pngine.Pngine
+
+val image = ImageIO.read(File("input.png"))
+val pixels = image.getRGB(0, 0, image.width, image.height, null, 0, image.width)
+File("output.png").writeBytes(Pngine.encodePixels(pixels, image.width, image.height))
+```
+
+### iOS
+
+Encode in Kotlin and hand the bytes to Swift as `NSData`:
+
+```kotlin
+// iosMain
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
+import org.onedroid.pngine.Pngine
+import platform.Foundation.NSData
+import platform.Foundation.create
+
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+fun encodePng(pixels: IntArray, width: Int, height: Int): NSData {
+    val bytes = Pngine.encodePixels(pixels, width, height)
+    return bytes.usePinned {
+        NSData.create(bytes = it.addressOf(0), length = bytes.size.toULong())
+    }
+}
+```
+
+On the Swift side, `UIImage(data:)` displays the result and
+`data.write(to:)` saves it.
+
+### RGBA sources
+
+Browser `ImageData`, Skia and most decoders hand out RGBA bytes rather than
+packed ARGB. Convert before encoding:
+
+```kotlin
+fun rgbaToArgb(rgba: ByteArray): IntArray = IntArray(rgba.size / 4) { i ->
+    val o = i * 4
+    ((rgba[o + 3].toInt() and 0xFF) shl 24) or
+        ((rgba[o].toInt() and 0xFF) shl 16) or
+        ((rgba[o + 1].toInt() and 0xFF) shl 8) or
+        (rgba[o + 2].toInt() and 0xFF)
+}
+```
 
 ## Options
 
